@@ -104,5 +104,10 @@ validate_certs=false
 	ansible-playbook -i hosts/hosts clean_OS.yaml
 ```
 
+* Run the following command to remove Tetration Sensor for all OSs in hosts file: 
+```
+	ansible-playbook -i hosts/hosts clean_all.yaml
+```
+
 ## Feedback
 Any feedback can send to me: Le Anh Duc (leeahnduk@yahoo.com or anhdle@cisco.com)
