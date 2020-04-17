@@ -1,0 +1,14 @@
+---
+- name: Remove existing sensor
+  yum:
+    name: tet-sensor
+    state: absent
+  become: yes
+  become_method: sudo
+
+- name: Remove installation folder
+  file:
+    state: absent
+    path: /usr/local/tet
+  become: yes
+  become_method: sudo

@@ -1,0 +1,46 @@
+---
+- name: Prepare Tetration Sensor Installation Directory
+  win_file: path=C:\Temp state=directory
+
+- name: Copy Tetration Sensor PowerShell File
+  win_copy: src={{ win_sensor_ps_script }} dest=C:/Temp/tet-install.ps1
+
+# This was the previous installation method. The installation would complete however this task
+# would time out due to the connection disruption during sensor installation
+#- name: Install Tetration Sensor With PowerShell Script
+#  win_shell: C:/Temp/tet-install.ps1
+
+# This is the workaround for the connection drop - install the sensor as a scheduled task
+- name: Install Tetration Sensor as a Scheduled Task
+  win_scheduled_task:
+    name: Tetration_Sensor_Install
+    username: SYSTEM
+    description: Install the Tetration sensor
+    actions:
+    - path: powershell.exe
+      arguments: -ExecutionPolicy Unrestricted -NonInteractive -File C:\temp\tet-install.ps1
+    - path: powershell.exe
+      arguments: Start-Sleep -Seconds 15
+    - path: cmd.exe
+      arguments: /c schtasks.exe /Delete /TN "Tetration_Sensor_Install" /F
+    triggers:
+    - type: registration
+      
+# This task is to wait out the brief network connection drop during sensor install
+- name: Waiting 90 seconds for sensor installation to complete
+  wait_for_connection:
+    delay: 90
+    timeout: 180
+
+# This task checks to make sure the service is running
+- name: Wait for service to start
+  win_wait_for_process:
+    process_name_exact: 'WindowsTetEngine'
+    state: present
+    timeout: 30
+    sleep: 15
+
+# It isn't necessary to restart the service
+#- name: Restart Tetration Sensor Service
+#  win_service: name=WindowsTetEngine state=restarted start_mode=auto
+

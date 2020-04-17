@@ -1,0 +1,7 @@
+---
+linux_sensor_file: /Users/leeahnduk3110/TetrationAPI/Ansible/ansible-tetration-sensors-all/Sensors/tet-sensor.rpm
+win_sensor_file: /Users/leeahnduk3110/TetrationAPI/Ansible/ansible-tetration-sensors-all/Sensors/tet-sensor.zip
+activation_key: 2452436f76b8c614382df12b96aa36184be87610
+
+linux_sensor_shell_script: /Users/leeahnduk3110/TetrationAPI/Ansible/ansible-tetration-sensors-all/Sensors/tet-linux.sh
+win_sensor_ps_script: /Users/leeahnduk3110/TetrationAPI/Ansible/ansible-tetration-sensors-all/Sensors/tet_sensor.ps1

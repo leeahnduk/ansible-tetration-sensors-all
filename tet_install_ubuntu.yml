@@ -1,0 +1,7 @@
+---
+- name: Install Tetration agents on Ubuntu nodes
+  hosts: ubuntu
+  remote_user: ubuntu
+  become: true
+  roles:
+    - install-tetration-sensor-ubuntu

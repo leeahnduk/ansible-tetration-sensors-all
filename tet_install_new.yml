@@ -1,0 +1,21 @@
+---
+- name: Install Tetration agents on Windows nodes
+  hosts: win
+  roles:
+    - clean-tetration-sensor-win
+    - install-tetration-sensor-ps-win
+
+- name: Install Tetration agents on CentOS nodes
+  hosts: centos
+  remote_user: ansible
+  become: true
+  roles:
+    - install-tetration-sensor-sh-centos
+
+- name: Install Tetration agents on Ubuntu nodes
+  hosts: ubuntu
+  remote_user: ubuntu
+  become: true
+  roles:
+    - clean-tetration-sensor-ubuntu
+    - install-tetration-sensor-ubuntu

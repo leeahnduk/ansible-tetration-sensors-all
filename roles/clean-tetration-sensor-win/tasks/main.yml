@@ -1,0 +1,31 @@
+---
+
+#- name: Remove Tetration Sensor
+#  win_command: 'wmic product where name="Cisco Tetration Agent" call uninstall'
+
+- name: Remove Tetration Sensor as a Scheduled Task
+  win_scheduled_task:
+    name: Tetration_Sensor_Uninstall
+    username: SYSTEM
+    description: Uninstall the Tetration sensor
+    actions:
+    - path: cmd.exe
+      arguments: /c wmic product where name="Cisco Tetration Agent" call uninstall
+    - path: powershell.exe
+      arguments: Start-Sleep -Seconds 15
+    - path: cmd.exe
+      arguments: /c schtasks.exe /Delete /TN "Tetration_Sensor_Uninstall" /F
+    triggers:
+    - type: registration
+
+
+- name: Wait 60 seconds for sensor to be removed
+  wait_for_connection:
+    delay: 60
+    timeout: 120
+
+- name: Remove Tetration Sensor Directory
+  win_file: state=absent path='C:\Program Files\Cisco Tetration'
+  
+- name: Clean Up Temp Files
+  win_file: state=absent path=C:\Temp

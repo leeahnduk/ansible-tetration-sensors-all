@@ -1,0 +1,8 @@
+---
+- name: Install Tetration agents on CentOS nodes
+  hosts: centos
+  remote_user: ansible
+  become: true
+  roles:
+    - clean-tetration-sensor-centos
+    - install-tetration-sensor-centos

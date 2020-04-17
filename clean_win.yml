@@ -1,0 +1,5 @@
+---
+- name: Delete Agents in Windows VMs
+  hosts: win
+  roles:
+    - clean-tetration-sensor-win

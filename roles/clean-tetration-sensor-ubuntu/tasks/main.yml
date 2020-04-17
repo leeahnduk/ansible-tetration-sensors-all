@@ -1,0 +1,47 @@
+---
+- name: Get running processes list from remote host
+  ignore_errors: yes
+  shell: "ps -few | grep tet | awk '{print $2}'"
+  register: tet_running_processes
+ 
+- name: Kill running processes
+  ignore_errors: yes
+  shell: "kill {{ item }}"
+  with_items: "{{ tet_running_processes.stdout_lines }}"
+ 
+- wait_for:
+    path: "/proc/{{ item }}/status"
+    state: absent
+  with_items: "{{ running_processes.stdout_lines }}"
+  ignore_errors: yes
+  register: tet_processes
+ 
+- name: Force kill stuck processes
+  ignore_errors: yes
+  shell: "kill -9 {{ item }}"
+  with_items: "{{ tet_processes.results | select('failed') | map(attribute='item') | list }}"
+
+- name: Remove "tet-sensor-site" package
+  apt:
+    name: tet-sensor-site
+    state: absent
+
+- name: uninstall tet-sensor-site
+  become: yes
+  shell: dpkg -P tet-sensor-site
+
+- name: Remove Tetration Sensor Directory
+  file: state=absent path=/usr/local/tet
+
+- name: Remove other Temp Tetration Sensor Directory
+  file: 
+    state: absent 
+    path: ['/usr/share/doc/tet-sensor-site', '/tmp/tet-sensor-3.3.2.2-1.u18.x86_64.rpm', '/tmp/sensor_type', '/tmp/sensor_rpm_filename', '/tmp/conf/enforcer.cfg', '/tmp/conf/.sensor_config']
+
+- name: Remove useless packages from the cache
+  apt:
+    autoclean: yes
+
+- name: Remove dependencies that are no longer required
+  apt:
+    autoremove: yes

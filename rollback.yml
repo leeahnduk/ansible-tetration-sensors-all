@@ -1,0 +1,19 @@
+---
+- name: Delete Agents in Windows VMs
+  hosts: win
+  roles:
+    - clean-tetration-sensor-win
+
+- name: Delete Agents in CentOS VMs
+  become: true
+  hosts: centos
+  remote_user: ansible
+  roles:
+    - clean-tetration-sensor-centos
+  
+- name: Delete Agents in Ubuntu VMs
+  become: true
+  hosts: ubuntu
+  remote_user: ubuntu
+  roles:
+    - clean-tetration-sensor-ubuntu

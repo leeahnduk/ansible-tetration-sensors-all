@@ -1,0 +1,45 @@
+---
+- name: Install sensors dependancies requirements
+  become: true
+  yum: pkg={{ item }} state=present
+  with_items:
+    - rpm
+    - lsof
+    - ipset
+    - dmidecode
+    - cpio
+    - gawk
+    - curl
+    - openssl
+    - sed
+
+- name: Set INPUT to ACCEPT
+  iptables:
+    chain: INPUT
+    jump: ACCEPT
+    flush: yes
+  become: yes
+  become_method: sudo
+
+- name: Set OUTPUT to ACCEPT
+  iptables:
+    chain: OUTPUT
+    jump: ACCEPT
+    flush: yes
+  become: yes
+  become_method: sudo
+  
+- name: Copy Tetration Sensor RPM File
+  copy: src={{ linux_sensor_file }} dest=/tmp/tet-sensor.rpm
+
+- name: Install Tetration Sensor RPM
+  become: yes
+  become_method: sudo
+  shell: rpm -Uvh /tmp/tet-sensor.rpm
+
+- name: Copy User Config File
+  template: src=user.cfg.j2 dest=/usr/local/tet/user.cfg mode=0644
+
+
+- name: Clean Up Temp Files
+  file: path=/tmp/tet-sensor.rpm state=absent

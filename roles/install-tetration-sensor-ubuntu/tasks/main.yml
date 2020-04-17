@@ -1,0 +1,39 @@
+---
+- name: perform apt-get update and update the cache
+  become: yes
+  apt:
+    upgrade: yes
+    update_cache: yes
+    cache_valid_time: 86400
+
+- name: install linux packages
+  become: yes
+  apt:
+    name: ['rpm', 'lsb-release', 'ipset', 'dmidecode', 'gawk', 'util-linux', 'curl', 'openssl', 'sed', 'alien']
+    state: present
+
+- name: Download Cisco Tetration Enforcer agent
+  become: yes
+  get_url:
+    url: http://192.168.20.100/tet-sensor-3.3.2.2-1.u18-tet.enforcer.x86_64.rpm
+    dest: /opt
+    mode: 0755
+        #group: admin
+        #owner: admin
+
+- name: Run alien to convert rpm to debian package
+  become: yes
+  shell: alien /opt/tet-sensor-3.3.2.2-1.u18-tet.enforcer.x86_64.rpm --scripts
+  args:
+    chdir: /opt
+
+- name: Install converted tetration debian package
+  become: yes
+  register: install
+  apt:
+    deb: /opt/tet-sensor-site_3.3.2.2-2_amd64.deb
+
+- name: Remove Tetration Sensor installation files
+  file: 
+    state: absent 
+    path: ['/opt/tet-sensor-3.3.2.2-1.u18-tet.enforcer.x86_64.rpm', '/opt/tet-sensor-site_3.3.2.2-2_amd64.deb']

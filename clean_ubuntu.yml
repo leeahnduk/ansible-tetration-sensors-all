@@ -1,0 +1,7 @@
+---  
+- name: Delete Agents in Ubuntu VMs
+  become: true
+  hosts: ubuntu
+  remote_user: ubuntu
+  roles:
+    - clean-tetration-sensor-ubuntu
