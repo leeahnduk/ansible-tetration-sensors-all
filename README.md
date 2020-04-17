@@ -35,15 +35,14 @@ $ git clone https://github.com/leeahnduk/ansible-tetration-sensors-all.git
 * Add your hosts to inventory file
 * Download sensors and put it into folder and change folder location in group_vars/all
 * Update group_vars/all with following varibles
-    ```
+``` 
 linux_sensor_file: /Sensors/tet-sensor.rpm
 win_sensor_file: /Sensors/tet-sensor.zip
 activation_key: your activation key
 
 linux_sensor_shell_script: /Sensors/tet-linux.sh
 win_sensor_ps_script: /Sensors/tet_sensor.ps1
-
-    ```
+```
 * Also add username and password for all the hosts i.e. inventory/hosts
 ```
 [centos]
