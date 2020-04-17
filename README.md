@@ -36,7 +36,6 @@ $ git clone https://github.com/leeahnduk/ansible-tetration-sensors-all.git
 * Download sensors and put it into folder and change folder location in group_vars/all
 * Update group_vars/all with following varibles
     ```
-    ---
 linux_sensor_file: /Sensors/tet-sensor.rpm
 win_sensor_file: /Sensors/tet-sensor.zip
 activation_key: your activation key
