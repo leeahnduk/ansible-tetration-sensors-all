@@ -9,7 +9,7 @@
 - name: install linux packages
   become: yes
   apt:
-    name: ['rpm', 'lsb-release', 'ipset', 'dmidecode', 'gawk', 'util-linux', 'curl', 'openssl', 'sed', 'alien']
+    name: ['rpm', 'iptables', 'lsb-release', 'ipset', 'dmidecode', 'gawk', 'unzip', 'curl', 'openssl', 'sed', 'lsof']
     state: present
 
 - name: Download Cisco Tetration Enforcer agent

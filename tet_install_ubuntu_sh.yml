@@ -5,4 +5,4 @@
   become: true
   roles:
     - clean-tetration-sensor-ubuntu
-    - install-tetration-sensor-ubuntu
+    - install-tetration-sensor-sh-ubuntu

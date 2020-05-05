@@ -1,0 +1,35 @@
+---
+- name: perform apt-get update and update the cache
+  become: yes
+  apt:
+    upgrade: yes
+    update_cache: yes
+    cache_valid_time: 86400
+
+- name: install linux packages
+  become: yes
+  apt:
+    name: ['rpm', 'lsb-release', 'ipset', 'iptables', 'dmidecode', 'gawk', 'util-linux', 'curl', 'openssl', 'sed', 'unzip', 'lsof']
+    state: present
+
+- name: Copy shell scripts
+  copy: src={{ linux_sensor_shell_script }} dest=/tmp/tet_agent_installer.sh
+
+- name: enable execute
+  file:
+    path: /tmp/tet_agent_installer.sh
+    mode: u+x
+
+- name: run installer
+  shell: /tmp/tet_agent_installer.sh
+  become: yes
+  become_method: sudo
+
+- name: remove installer file
+  file:
+    state: absent
+    path: /tmp/tet_agent_installer.sh
+  become: yes
+  become_method: sudo
+
+
