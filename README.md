@@ -19,7 +19,7 @@ This application helps to quickly deploy Tetration Agents for all kinds of OS (U
 
 * Install winrm in windows hosts (need to install winrm in the windows servers, using powershell to install this ps script: https://raw.githubusercontent.com/ansible/ansible/devel/examples/scripts/ConfigureRemotingForAnsible.ps1) . 
 
-* Make sure ssh (username and password) and keys are available for Linux and Ubuntu servers.
+* Make sure ssh (username and password) and keys are available for Linux and Ubuntu servers. the root & administrator (Linux/windows) permission is required to install Tetration agents. 
 
 ## Installation
 
@@ -34,7 +34,7 @@ $ git clone https://github.com/leeahnduk/ansible-tetration-sensors-all.git
 * Navigate to the main repository directory
 * Add your hosts to inventory file
 * Download sensors and put it into folder and change folder location in group_vars/all
-* Update group_vars/all with following varibles
+* Update group_vars/all with following varibles. Make sure you rename your sensor installation files/scripts as below.
 ``` 
 linux_sensor_file: /Sensors/tet-sensor.rpm
 win_sensor_file: /Sensors/tet-sensor.zip
