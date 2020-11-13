@@ -12,6 +12,7 @@
     - curl
     - openssl
     - sed
+    - unzip
     
 - name: Remove existing sensor
   yum:

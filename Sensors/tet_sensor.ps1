@@ -1,10 +1,12 @@
 # Define the accepted parameters
 Param(
+    [switch] $preCheck,
     [switch] $skipPreCheck,
     [switch] $skipEnforcementCheck,
     [switch] $noInstall,
     [string] $logFile,
-    [string] $proxy,
+    [string] $proxy = "",
+    [switch] $noProxy,
     [switch] $help,
     [switch] $version,
     [string] $sensorVersion,
@@ -13,16 +15,19 @@ Param(
     [string] $save,
     [switch] $new,
     [switch] $npcap,
+    [switch] $wfp,
     [switch] $forceUpgrade,
-    [string] $upgrade
+    [switch] $upgradeLocal,
+    [string] $upgradeByUUID
 )
 
-$scriptVersion="1.0"
+$scriptVersion="3.4.1.1-PATCH-3.4.1.6"
 $minPowershellVersion=4
 $installerLog="msi_installer.log"
 # Sensor type is chosen by users on UI
 $SensorType="enforcer"
-
+# Powershell uses .NET Framework 4.5, which does not include TLS 1.2 as an available protocol.
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
 # We override the default validation, it will apply to all https requests for the remainder of this session lifetime.
 # This callback function performs Issuer, authorityKeyIdentifer and validity period check for self-signed cert.  
 if (-not ([System.Management.Automation.PSTypeName]'ServerCertificateValidationCallback').Type)
@@ -74,38 +79,38 @@ $certCallback=@"
                     {
                         string taSensorCApem = @"
 -----BEGIN CERTIFICATE-----
-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
+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
-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
+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
-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
-/81yAPXPywPe8D+aNpjkgK1D28S7
+CSqGSIb3DQEBAQUAA4ICDwAwggIKAoICAQClYtLGqC0aOtMC8sNNcxdGA5cWrnHH
+xj8Fim/Jo09AnXwArQhrrZH525/YhEvoN3rTE7RPFhr7W3fmq8p1CNjmoKeuC/+O
+hQO4AZ8phSOBIifl9y6GvnvPQuvKTyE9Q3s1DheOk0vIV+JS5ua6xrSyg3oKlqik
+TyuoMu075IJmYEqkeH6ofqHzCAGzrDKaklOxHsqvmvuh1KBZI+6zG1Jn7iLtkebP
+IxgaYMW8tA8kR/voJ5QeHNoU5yWK0i2Nseu7HPURf8Y2HIhqBqeyL1XHVT9xKrg8
+V7I0L0wK/sc2OdIiHluCCGOoPerlOSmymIK7lvg85ImDAhoHgCJuS9Fq98K9yVDj
+DDVOH5WLYZvGCPG+A1rfTw1LvKGJZJ10lYLN7rA2LDKEE8L4sSsIMc4L60qlBh5V
+6ssP8o/LdXLrfeUllYAMPSXa/jJYMJQQ2iyC1Ai2cdhPklS5YgOUZx54arOpnOt7
+SKWzUa6M9aRXVCYfMKBkkyfSZH0yZ6+/HkDcAoOD6XDXc22QXjebauZZEtuqnjVd
+nsPXERsvOZNBgN/Jd2FK5y695RoSSbfUlcg54CVN0nNTB9OK9RgavqPoZQrcIVQ5
+88e1BpKm/AAmlZLcz3L1K0bhAfKjwlfuXcdrHwhWZl5f/iy/wLCArkBFQqSjPsYd
+AlZvZOEUqJrw6wIDAQABo2AwXjAdBgNVHQ4EFgQUjHcRZwuu8ngQO54ckC7WMes0
+0agwHwYDVR0jBBgwFoAUjHcRZwuu8ngQO54ckC7WMes00agwDwYDVR0TAQH/BAUw
+AwEB/zALBgNVHQ8EBAMCAQYwDQYJKoZIhvcNAQELBQADggIBAJHDipq9NThNVW0o
+0+TG6Js0SELr8CSFcHPCD2h6CzW4/UjF8vMHa8Z4yrZPSuY/1Fu5pP9J14xvE9Qg
+6oYbudHY3BzalaARH5TmNokEtXzF6Tyk41NXXvDCDeSOu42kRVgG0vRaVSbWAAPT
+SlX0jSYC55YjF/OZwOUgUT6XFSLDExZvnEKrUoX7fDo7h74MnsGZHBz9OkBoivOF
+vahMmicIZAWEASIVxCJhiNpbDpaVIgzGuqdfbDT28ZomshrKWnuvji1HGpwZMpc/
+ziuf9TUDESXDFAFvCyGO7p6lau5/oYXGQVlMiuTi082ja78Fu69f38cckrBejTSH
+1EQaWNmSFwnTDZwsBEZF4BGxpGDx+dh6xV5Qs4tBvF3XikUXUc4zfCD3hyjbCdGM
+R+Ophc4SyfyT1u2fagj9rvsP5gkwnymQVC1lgXchkeBQ0/scpMn5DQoqHxWfO25L
+IDQIoG2tlMQrVe/dRr09T2BEMPCEJEFI5gw8rC2KVN9Leg7WBzuu19K2HiBjdNk4
+rnpjMyJDWbKLjxUpbMUvcW0q28Qd9lOACsHooYjqXCdnnURi3vZ/Jwx7gCugOfOi
+4gS7snbOZXdapZTnpx+yc+/atjhGv9HDv2ljfUqlVfA12eFcSCz6ZRsAdlCJMYpl
+4fTl8RIf/oWBJ2vYc2DuZAFCcx1y
 -----END CERTIFICATE-----
 
 ";
@@ -204,27 +209,71 @@ function Check-ValidSignature ($checkValid, $filename) {
 # Print version
 function Print-Version {
     Write-Host ("Installation script for Cisco Tetration Agent (Version: " + $scriptVersion + ").")
-    Write-Host ("Copyright (c) 2018-2019 Cisco Systems, Inc. All Rights Reserved.")
+    Write-Host ("Copyright (c) 2018-2020 Cisco Systems, Inc. All Rights Reserved.")
 }
 
 # Print usage
 function Print-Usage {
-    Write-Host ("Usage: " + $MyInvocation.MyCommand.Name + " [-skipPreCheck] [-skipEnforcementCheck] [-noInstall] [-logFile <FileName>] [-proxy <ProxyString>] [-help] [-version] [-sensorVersion <VersionInfo>] [-ls] [-file <FileName>] [-save <FileName>] [-new] [-npcap] [-forceUpgrade] [-upgrade <FileName>]")
+    Write-Host ("Usage: " + $MyInvocation.MyCommand.Name + " [-preCheck] [-skipPreCheck] [-skipEnforcementCheck] [-noInstall] [-logFile <FileName>] [-proxy <ProxyString>] [-noProxy] [-help] [-version] [-sensorVersion <VersionInfo>] [-ls] [-file <FileName>] [-save <FileName>] [-new] [-npcap] [-forceUpgrade] [-upgradeLocal] [-upgradeByUUID <FileName>]")
+    Write-Host ("  -preCheck: run pre-check only")
     Write-Host ("  -skipPreCheck: skip pre-installation check (on by default)")
     Write-Host ("  -skipEnforcementCheck: skip the check for enforcement readiness (during pre-installation check)")
     Write-Host ("  -noInstall: will not download and install sensor package onto the system")
     Write-Host ("  -logFile <FileName>: write the log to the file specified by <FileName>")
     Write-Host ("  -proxy <ProxyString>: set the value of HTTPS_PROXY, the string should be formatted as http://<proxy>:<port>")
+    Write-Host ("  -noProxy: bypass system wide proxy; this flag will be ignored if -proxy flag was provided")
     Write-Host ("  -help: print this usage")
     Write-Host ("  -version: print current script's version")
-    Write-Host ("  -sensorVersion <VersionInfo>: select sensor's version; e.g.: '-sensorVersion 3.1.1.53.devel.win64'; will download the latest version by default")
+    Write-Host ("  -sensorVersion <VersionInfo>: select sensor's version; e.g.: '-sensorVersion 3.4.1.0.win64'; will download the latest version by default if this flag was not provided")
     Write-Host ("  -ls: list all available sensor versions for your system (will not list pre-3.1 packages); will not download any package")
     Write-Host ("  -file <FileName>: provide local zip file to install sensor instead of downloading it from cluster")
     Write-Host ("  -save <FileName>: downloaded and save zip file as <FileName>")
     Write-Host ("  -new: cleanup installation to enable fresh install")
     Write-Host ("  -npcap: overwrite existing npcap")
-    Write-Host ("  -forceUpgrade: force sensor upgrade to version given by -sensorVersion flag; e.g.: '-sensorVersion 3.3.1.53.devel -forceUpgrade'; apply the latest version by default if -sensorVersion flag is missing")
-    Write-Host ("  -upgrade <FileName>: trigger sensor whose uuid is listed in <FileName> upgrade to version given by -sensorVersion flag; e.g.: '-sensorVersion 3.3.1.53.devel -upgrade ""C:\\Program Files\\Cisco Tetration\\sensor_id""'; apply the latest version by default if -sensorVersion flag is missing")
+    Write-Host ("  -forceUpgrade: force sensor upgrade to version given by -sensorVersion flag; e.g.: '-sensorVersion 3.4.1.0.win64 -forceUpgrade'; apply the latest version by default if -sensorVersion flag was not provided")
+    Write-Host ("  -upgradeLocal: trigger local sensor upgrade to version given by -sensorVersion flag; e.g.: '-sensorVersion 3.4.1.0.win64 -upgradeLocal'; apply the latest version by default if -sensorVersion flag was not provided")
+    Write-Host ("  -upgradeByUUID <FileName>: trigger sensor whose uuid is listed in <FileName> upgrade to version given by -sensorVersion flag; e.g.: '-sensorVersion 3.4.1.0.win64 -upgradeByUUID ""C:\\Program Files\\Cisco Tetration\\sensor_id""'; apply the latest version by default if -sensorVersion flag was not provided")
+}
+
+
+# Validate Firewall profile settings
+function Validate_fw_profile_settings($profileregkey, $fwprofile, $curProfile, $profileName) {
+    $addDescr=""
+    if (-not $curProfile) {
+        $addDescr= " when profile is active"
+    }
+    $RegKeys=(Get-ItemProperty -Path $profileregkey -ErrorAction SilentlyContinue)
+    if (($RegKeys -ne $null) -and ($RegKeys.Length -ne 0)) {
+        # Firewall must not be disabled
+        if (($RegKeys.EnableFirewall -ne $null) -and ($RegKeys.EnableFirewall -eq 0)) {
+            $warnMesg="GPO Firewall for "+$fwprofile + " is off, enforcement might fail" +  $addDescr
+            Log-Write-Warning $warnMesg
+        } elseif ($RegKeys.EnableFirewall -eq $null) {
+            $localSetting=Get-NetFirewallProfile -Name $profileName|Select-Object Enabled
+            if ($localSetting.Enabled -eq 'False') {
+                $warnMesg="GPO Firewall for "+$fwprofile + " is off, enforcement might fail" +  $addDescr
+                Log-Write-Warning $warnMesg
+            } 
+        }
+        # DefaultInboundAction must not be defined
+        if ($RegKeys.DefaultInboundAction -ne $null) {
+            $warnMesg="DefaultInboundAction for  "+$fwprofile + " is not null, enforcement might fail" + $addDescr
+            Log-Write-Warning $warnMesg
+        }
+        # DefaultOutboundAction must not be defined
+        if ($RegKeys.DefaultOutboundAction -ne $null) {
+            $warnMesg="DefaultOutboundAction for " + $fwprofile +" is not null, enforcement might fail" + $addDescr
+            Log-Write-Warning $warnMesg
+        }
+        return
+    }
+    # This is non-GPO mode or profile is "not configured" in GPO mode
+    $localSetting=Get-NetFirewallProfile -Name $profileName|Select-Object Enabled
+    if ($localSetting.Enabled -eq 'False') {
+        $warnMesg="Firewall for "+$fwprofile + " is off, enforcement might fail" +  $addDescr
+        Log-Write-Warning $warnMesg
+    } 
+    return
 }
 
 # Run pre-installation checks
@@ -233,6 +282,17 @@ function Pre-Check ($enforcement) {
     Log-Write-Host "Checking system path contains c:\windows\system32..."
     if (-Not ($Env:Path).ToLower().Contains("c:\windows\system32")) {
         Log-Write-Warning "c:\windows\system32, agent installation and registration might fail"
+        return $false
+    }
+    Log-Write-Host "Passed"
+
+    # Reject installation on platforms prior to win2008r2
+    Log-Write-Host "Checking for platform version..."
+    # win7 has the same osversion as win2008r2
+    $UnsupportedPlatforms = "MSWindows7Enterprise", "MSWindows7HomePremium", "MSWindows7Pro"  
+    $Platform=Extract-OsPlatform
+    if (($UnsupportedPlatforms.Contains($Platform)) -or ([Environment]::OSVersion.Version -lt (new-object 'Version' 6,1))) {
+        Log-Write-Warning ("Platform " + $Platform + " is not supported")
         return $false
     }
     Log-Write-Host "Passed"
@@ -247,52 +307,27 @@ function Pre-Check ($enforcement) {
             Log-Write-Warning "netsh not found"
             return $false
         }
-        # Check firewall settings for Domain profile
-        Log-Write-Host "Checking settings for Domain Profile..."
-        $RegKeys=(Get-ItemProperty -Path HKLM:\SOFTWARE\Policies\Microsoft\WindowsFirewall\DomainProfile -ErrorAction SilentlyContinue)
-        if (($RegKeys -ne $null) -and ($RegKeys.Length -ne 0)) {
-            # Firewall must not be disabled
-            If (($RegKeys.EnableFirewall -ne $null) -and ($RegKeys.EnableFirewall -eq 0)) {
-                Log-Write-Warning "GPO Firewall for Domain Profile is off, enforcement might fail"
-                return $false
-            }
-            # DefaultInboundAction must not be defined
-            if ($RegKeys.DefaultInboundAction -ne $null) {
-                Log-Write-Warning "DefaultInboundAction for Domain Profile is not null, enforcement might fail"
-                return $false
-            }
+        if (!$wfp) { 
+            # Check whether GPO environment 
+            $FwPath="HKLM:\SOFTWARE\Policies\Microsoft\WindowsFirewall"
+            
+            $fwProfiles = @{'Domain*'='DomainProfile';'Public*'='PublicProfile';'Private*'='PrivateProfile'}
+            # Check active network profile setting
+            $curProfileList = netsh advfirewall show currentprofile 
 
-            # DefaultOutboundAction must not be defined
-            if ($RegKeys.DefaultOutboundAction -ne $null) {
-                Log-Write-Warning "DefaultOutboundAction for Domain Profile is not null, enforcement might fail"
-                return $false
+            foreach($k in $fwProfiles.keys) {
+                $isCurProfile=$curProfileList -like $k
+                if ($isCurProfile) {
+                    $mesg="Checking settings for active Profile " + $fwProfiles[$k] + "..."
+                 } else {
+                    $mesg="Checking settings for " + $fwProfiles[$k] + "..."
+                }
+                Log-Write-Host $mesg
+                $ProfileRegKey= join-path $FwPath -ChildPath $fwProfiles[$k]
+                $isProfileSetting = Validate_fw_profile_settings $ProfileRegKey $fwProfiles[$k] $isCurProfile $k
+           
             }
         }
-        Log-Write-Host "Passed"
-
-        # Check firewall settings for Private profile
-        Log-Write-Host "Checking settings for Private Profile..."
-        $RegKeys=(Get-ItemProperty -Path HKLM:\SOFTWARE\Policies\Microsoft\WindowsFirewall\PrivateProfile -ErrorAction SilentlyContinue)
-        if (($RegKeys -ne $null) -and ($RegKeys.Length -ne 0)) {
-            # Firewall must be disabled
-            If (($RegKeys.EnableFirewall -ne $null) -and ($RegKeys.EnableFirewall -ne 0)) {
-                Log-Write-Warning "GPO Firewall for Private Profile is on, enforcement might fail"
-                return $false
-            }
-        }
-        Log-Write-Host "Passed"
-
-        # Check firewall settings for Public profile
-        Log-Write-Host "Checking settings for Public Profile..."
-        $RegKeys=(Get-ItemProperty -Path HKLM:\SOFTWARE\Policies\Microsoft\WindowsFirewall\PublicProfile -ErrorAction SilentlyContinue)
-        if (($RegKeys -ne $null) -and ($RegKeys.Length -ne 0)) {
-            # Firewall must be disabled
-            If (($RegKeys.EnableFirewall -ne $null) -and ($RegKeys.EnableFirewall -ne 0)) {
-                Log-Write-Warning "GPO Firewall for Public Profile is on, enforcement might fail"
-                return $false
-            }
-        }
-        Log-Write-Host "Passed"
     }
 
     Log-Write-Host "Pre-check all passed."
@@ -333,33 +368,32 @@ function List-Available-Version {
     $Ts=Get-Date -UFormat "%Y-%m-%dT%H:%M:%S+0000"
 
     $ApiServer="https://192.168.30.5"
-    $ApiKey="fb41190aa9ee4f79b1de1ebfcd838d8a"
-    $ApiSecret="84dbf0d8bc02113deb1b595c11a9c7d13f12d044"
+    $ApiKey="9774b3b6ac444c428732347b5b727493"
+    $ApiSecret="0fa60ff4293b42a6dc910b6d39feb88c04b41f6e"
     $Url=$ApiServer + $Uri
 
     # Calculate the signature based on the params
     # <httpMethod>\n<requestURI>\n<chksumOfBody>\n<ContentType>\n<TimestampHeader>
     $Msg="$Method`n$Uri`n$ChkSum`n$ContentType`n$Ts`n"
     $Signature=(Calculate-Hmac -message $Msg -secret $ApiSecret)
-
-    # Create a map to store all <key,value> for the headers
-    $MyHeaders=@{
-        Timestamp=$Ts
-        Id=$ApiKey
-        Authorization=$Signature
-    }
-
     $success = $true
     # Invoke web request to list avaible sensor versions
     try {
+        $webclient = New-Object System.Net.WebClient
+        $webclient.Headers.Add("Timestamp",$Ts)
+        $webclient.Headers.Add("Id",$ApiKey)
+        $webclient.Headers.Add("Authorization",$Signature)
         if ($proxy.Length -ne 0) {
-            $resp = Invoke-WebRequest -Uri $Url -Method Get -Headers $MyHeaders -Verbose -Proxy $proxy
-        } else {
-            $resp = Invoke-WebRequest -Uri $Url -Method Get -Headers $MyHeaders -Verbose
+            $webproxy = New-Object System.Net.WebProxy($proxy,$true)
+            $webclient.Proxy = $webproxy
+        } elseif ($noProxy) {
+            $webclient.Proxy = $null
         }
+        $resp = $webclient.DownloadString($Url)
         Log-Write-Host "available versions:"
         Log-Write-Host $resp
-    } catch {
+    }
+    catch {
         # Check the return code
         Log-Write-Warning "Error found while connecting to the server"
         # network issue
@@ -376,12 +410,79 @@ function List-Available-Version {
     return $success
 }
 
+
+# Run certifcate checks for MSI installer and NPCAP 
+function VerifyCert ($npcap) {
+    Log-Write-Host "Checking MSI certificate...."
+
+    $certStore  = "Cert:\LocalMachine\Root"
+    $msiRootCert = 'VeriSign Universal Root Certification Authority'
+    # check for MSI validation certificate
+    $certDetails = Get-ChildItem -Path $certStore | Where-Object  {$_.Subject -like "*$msiRootCert*"} 
+    if ( $certDetails -eq $null )
+    {
+        Log-Write-Warning ($msiRootCert  + " does not exist in cert store " + $certStore)
+        Log-Write-Warning "Windows Sensor Upgrade will fail if auto root certificate update is disabled."
+    }
+
+    # check npcap installed
+    $npcapPath = (Get-ItemProperty $npcapReg -ErrorAction SilentlyContinue).'(default)'
+    if (($npcapPath -ne $null) -and ($npcapPath.Length -ne 0)) {
+       write-host "npcap already installed, do not check NPCAP certificate"
+       if ($npcap -eq $false) { 
+           Log-Write-Host "npcap already installed, do not check NPCAP certificate"
+           return
+       }
+    }
+
+    Log-Write-Host "Checking NPCAP certificate...."
+ 
+    $rootCerts = @()
+
+    ## check for OS
+    $prodName=(Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion" -Name ProductName).ProductName
+    if ($prodName -imatch " 2008 R2 ") 
+    {
+        $os = "2008 R2"
+        $rootCerts = $rootCerts + 'DigiCert High Assurance EV Root CA'
+        $rootCerts = $rootCerts + 'DigiCert Assured ID Root CA'
+    } Elseif (($prodName -imatch " 2016 ")  -or ($prodName -imatch " 2019 ")  -or ($prodName -imatch " 10 "))
+    {
+        $os = "windows 10 based OS"
+        $rootCerts = $rootCerts + 'Microsoft Root Certificate Authority 2010'
+    } else {
+        $os = "other"
+        $rootCerts = $rootCerts + 'COMODO RSA Certification Authority'
+        $rootCerts = $rootCerts + 'DigiCert Assured ID Root CA'
+    }
+
+    foreach($certName in $rootCerts)
+    {
+        $certDetails = Get-ChildItem -Path $certStore | Where-Object  {$_.Subject -like "*$certName*"} 
+
+        if ( $certDetails -eq $null )
+        {
+            Log-Write-Warning ($certName  + " does not exist in Trusted Root store " )
+            Log-Write-Warning "NPCAP installation may fail if auto root certificate update is disabled."
+        }
+    }
+    Log-Write-Host "VerifyCert Done..."
+}
+
 function Install-Package {
+    if (!$save) {
+        $isAdmin = Test-Administrator
+        if (-not $isAdmin) {
+            Log-Write-Warning "This script needs Administrator rights to run with defined options, try again"
+            Exit
+        }
+    }
+
     # Check if Cisco binaries already exist
     $TetFolder = "C:\\Program Files\\Cisco Tetration"
 
     if ($new -eq $true) {
-        Log-Write-Host "Cleanning up before installation"
+        Log-Write-Host "Cleaning up before installation"
         if (Test-Path ($TetFolder + "\\UninstallAll.lnk")) {
             Start-Process -FilePath ($TetFolder + "\\UninstallAll.lnk") -Wait
             if (Test-Path ($TetFolder)) {
@@ -400,22 +501,66 @@ function Install-Package {
         }
     }
 
-    if (Test-Path ($TetFolder + "\\WindowsSensor.exe")) {
+    if ((Test-Path ($TetFolder + "\\TetSen.exe")) -or (Test-Path ($TetFolder + "\\WindowsSensor.exe"))) {
         if (!$save) {
             Log-Write-Warning ("Tetration agent binaries exist, it seems sensor is already installed. Please clean up and retry")
             return $false
         }
     }
 
+    if (!$save) {
+        # Validate Npcap installation state if Npcap is installed
+        $npcapInvalid = 0
+        $npcapReg = 'hklm:\Software\Wow6432Node\Npcap'
+        Log-Write-Host("Validate Npcap installation state if Npcap is installed")
+        $npcapDll = "c:\\windows\\system32\\npcap\\packet.dll"
+        if (Test-Path -path $npcapReg) {
+            if (!(Test-Path $npcapDll)) {
+                Log-Write-Host("Npcap packet.dll missing")
+                $npcapInvalid = 1
+            }
+        }
+        if ($npcapInvalid -eq 1) {
+            $npcapPath = (Get-ItemProperty $npcapReg).'(default)'
+            if (($npcapPath -ne $null) -and ($npcapPath.Length -ne 0)) {
+                # Check uninstall.exe and npfinstall.exe exist
+                $npcapUninstall = Join-Path $npcapPath "uninstall.exe"
+                $npcapInstall = Join-Path $npcapPath "NPFInstall.exe"
+                if ((Test-Path ($npcapUninstall)) -and (Test-Path ($npcapInstall))) {
+                    Log-Write-Host("Try to uninstall Npcap")
+
+                    Start-Process $npcapInstall -ArgumentList "-kill_proc" -Wait 
+                    Start-Process $npcapUninstall -ArgumentList "/S" -Wait
+                    if (Test-Path -path $npcapReg) {
+                        Log-Write-Warning("Failed to uninstall npcap")
+                    } else {
+                        $npcapInvalid = 0
+                        Log-Write-Host("Npcap uninstalled successfully !!!!")
+                    }
+                }
+            }
+        }
+
+        if ($npcapInvalid -eq 1) {
+            Log-Write-Warning("Npcap in invalid State : Please uninstall Npcap before installing Sensor")
+            Exit
+        }
+    }
+
+    # Validate Certificate
+    VerifyCert($npcap)
+
     # Check whether this is a production sensor
     $InternalCluster=$false
     $IsProdSensor=($InternalCluster -ne $true)
 
     # Get activation key from cluster
-    $ActivationKey="2452436f76b8c614382df12b96aa36184be87610"
+    $ActivationKey="434af42f36c09c7628e3d3b66c89ca5f46d7b2d4"
+    $InstallationID="site_admin_20201102022711"
     Log-Write-Host "Content of user.cfg file would be:"
     Log-Write-Host "ACTIVATION_KEY=$ActivationKey"
     Log-Write-Host "HTTPS_PROXY=$proxy"
+    Log-Write-Host "INSTALLATION_ID=$InstallationID"
 
     # Set platform and architect for download query
     $Platform=Extract-OsPlatform
@@ -436,8 +581,8 @@ function Install-Package {
     $DownloadedFolder="tet-sensor-downloaded"
     $ZipFile=$DownloadedFolder + ".zip"
     $ApiServer="https://192.168.30.5"
-    $ApiKey="fb41190aa9ee4f79b1de1ebfcd838d8a"
-    $ApiSecret="84dbf0d8bc02113deb1b595c11a9c7d13f12d044"
+    $ApiKey="9774b3b6ac444c428732347b5b727493"
+    $ApiSecret="0fa60ff4293b42a6dc910b6d39feb88c04b41f6e"
     $Url=$ApiServer + $Uri
     Log-Write-Host ("URL: " + $Url)
     Log-Write-Host ("Server: " + $ApiServer)
@@ -478,12 +623,17 @@ function Install-Package {
         do {
             # Invoke web request to download the file
             try {
+                $webclient = New-Object System.Net.WebClient
+                $webclient.Headers.Add("Timestamp",$Ts)
+                $webclient.Headers.Add("Id",$ApiKey)
+                $webclient.Headers.Add("Authorization",$Signature)
                 if ($proxy.Length -ne 0) {
-                    $resp = Invoke-WebRequest -Uri $Url -Method Get -Headers $MyHeaders -OutFile $ZipFile -Verbose -Proxy $proxy
-                } else {
-                    $resp = Invoke-WebRequest -Uri $Url -Method Get -Headers $MyHeaders -OutFile $ZipFile -Verbose
+                    $webproxy = New-Object System.Net.WebProxy($proxy,$true)
+                    $webclient.Proxy = $webproxy
+                } elseif ($noProxy) {
+                    $webclient.Proxy = $null
                 }
-
+                $resp = $webclient.DownloadFile($Url,(Full-Name $ZipFile))
             } catch {
                 # Check the return code
                 Log-Write-Warning "Error found while connecting to the server"
@@ -519,15 +669,6 @@ function Install-Package {
             Log-Write-Warning ("Failed to download package")
             return $false
         }
-        
-        if ($save) {
-            Copy-Item $ZipFile -Destination $save -Force
-            if (Test-Path $ZipFile) {
-                Remove-Item -Force $ZipFile
-            }
-            return $true
-        } 
-
     } else {
         Copy-Item $file -Destination $ZipFile -Force
     }
@@ -548,6 +689,7 @@ function Install-Package {
     $lineEnd = "`r`n"
     "ACTIVATION_KEY=$ActivationKey" + $lineEnd | Out-File -filepath "user.cfg" -Force -Encoding ASCII
     "HTTPS_PROXY=$proxy" + $lineEnd | Out-File -filepath "user.cfg" -Append -Force -Encoding ASCII
+    "INSTALLATION_ID=$InstallationID" + $lineEnd | Out-File -filepath "user.cfg" -Append -Force -Encoding ASCII
 
     $InstallerFile="TetrationAgentInstaller.msi"
     $InstallerFileFullPath=$ExpandedFolder + "\\" + $InstallerFile
@@ -565,15 +707,28 @@ function Install-Package {
         return $false
     }
 
+    # Save zip file after signature check
+    if ($save) {
+        Pop-Location
+        Copy-Item $ZipFile -Destination $save -Force
+        if (Test-Path $DownloadedFolder) {
+            Remove-Item -Recurse -Force $DownloadedFolder
+        }
+        if (Test-Path $ZipFile) {
+            Remove-Item -Force $ZipFile
+        }
+        return $true
+    } 
+
     Log-Write-Host "Installation file is ready, processing..."
 
     # Create sub-folders
     Log-Write-Host "Creating folder $TetFolder"
-    New-Item -Path $TetFolder -ItemType Directory
-    New-Item -Path ($TetFolder + "\\conf") -ItemType Directory
-    New-Item -Path ($TetFolder + "\\cert") -ItemType Directory
-    New-Item -Path ($TetFolder + "\\logs") -ItemType Directory
-    New-Item -Path ($TetFolder + "\\proto") -ItemType Directory
+    New-Item -Path $TetFolder -ItemType Directory -ErrorAction SilentlyContinue
+    New-Item -Path ($TetFolder + "\\conf") -ItemType Directory -ErrorAction SilentlyContinue
+    New-Item -Path ($TetFolder + "\\cert") -ItemType Directory -ErrorAction SilentlyContinue
+    New-Item -Path ($TetFolder + "\\logs") -ItemType Directory -ErrorAction SilentlyContinue
+    New-Item -Path ($TetFolder + "\\proto") -ItemType Directory -ErrorAction SilentlyContinue
 
     # Copy all the config files
     Log-Write-Host
@@ -626,8 +781,16 @@ function Install-Package {
         $overwrite = "overwriteNpcap=yes"
     }
 
+    $use_wfp = ""
+    # Check if user wants to use WFP for enforcement
+    if ($SensorType -eq "enforcer") { 
+        if ($wfp) {
+            $use_wfp = "WFP=yes"
+        }
+    }
+
     # Finally invoke the msi
-    $MsiState = Start-Process -PassThru -FilePath "$env:systemroot\\system32\\msiexec.exe" -ArgumentList "/i $InstallerFileFullPath /quiet /norestart /l*v $installerLog AgentType=$SensorType $overwrite" -Wait -WorkingDirectory $pwd
+    $MsiState = Start-Process -PassThru -FilePath "$env:systemroot\\system32\\msiexec.exe" -ArgumentList "/i $InstallerFileFullPath /quiet /norestart /l*v $installerLog AgentType=$SensorType $overwrite $use_wfp" -Wait -WorkingDirectory $pwd
 
     # Copy the log file to destination
     Copy-Item $installerLog -Destination ($TetFolder + "\\logs\\" + $installerLog) -Force
@@ -663,7 +826,18 @@ function ForceUpgrade {
         New-Item -Path $donotDownload -ItemType "file" -Force
     }
     $currentVersion = (Get-Content $versionFile -First 1)
-    Stop-Service WindowsTetEngine
+
+    $tetSensorPresent = "no"
+    if (Get-Service TetSensor -ErrorAction SilentlyContinue) {
+      Log-Write-Host "Stopping TetSensor"
+      Stop-Service TetSensor
+      $tetSensorPresent = "yes"
+    }
+    if (Get-Service WindowsTetEngine -ErrorAction SilentlyContinue) {
+      Log-Write-Host "Stopping WindowsTetEngine if present"
+      Stop-Service WindowsTetEngine
+    }
+
     Push-Location $TetFolder
     Log-Write-Host "Triggering force-upgrade..."
     $detailedErr = cmd /c $checkConfUpdate 2>&1
@@ -681,16 +855,22 @@ function ForceUpgrade {
     Log-Write-Host "Force upgrade failed."
     Log-Write-Host $detailedErr
     Remove-Item -Force $save -ErrorAction Ignore
-    Start-Service WindowsTetEngine
+    if ($tetSensorPresent -eq "yes") {
+      Log-Write-Host "Start TetSensor after upgrade failure."
+      Start-Service TetSensor
+    } else {
+      Log-Write-Host "Start WindowsTetEngine after upgrade failure."
+      Start-Service WindowsTetEngine
+    }
     return $false
 }
 
 function Upgrade {
-    if (!(Test-Path ($upgrade))){
-        Log-Write-Host ($upgrade + " does not exist")
+    if (!(Test-Path ($upgradeByUUID))){
+        Log-Write-Host ($upgradeByUUID + " does not exist")
         return $false
     }
-    $uuid = (Get-Content $upgrade -First 1)
+    $uuid = (Get-Content $upgradeByUUID -First 1)
     $Method = "POST"
     $Uri = "/sensor_config/upgrade/" + $uuid + "?sensor_version=" + $sensorVersion
     $ChkSum = ""
@@ -698,8 +878,8 @@ function Upgrade {
     $Ts = Get-Date -UFormat "%Y-%m-%dT%H:%M:%S+0000"
 
     $ApiServer = "https://192.168.30.5"
-    $ApiKey = "fb41190aa9ee4f79b1de1ebfcd838d8a"
-    $ApiSecret = "84dbf0d8bc02113deb1b595c11a9c7d13f12d044"
+    $ApiKey = "9774b3b6ac444c428732347b5b727493"
+    $ApiSecret = "0fa60ff4293b42a6dc910b6d39feb88c04b41f6e"
     $Url = $ApiServer + $Uri
 
     # Calculate the signature based on the params
@@ -707,22 +887,20 @@ function Upgrade {
     $Msg="$Method`n$Uri`n$ChkSum`n$ContentType`n$Ts`n"
     $Signature=(Calculate-Hmac -message $Msg -secret $ApiSecret)
 
-    # Create a map to store all <key,value> for the headers
-    $MyHeaders=@{
-        Timestamp=$Ts
-        Id=$ApiKey
-        Authorization=$Signature
-    }
-
     $success = $true
     # Invoke web request to update sensor versions
     try {
+        $webclient = New-Object System.Net.WebClient
+        $webclient.Headers.Add("Timestamp",$Ts)
+        $webclient.Headers.Add("Id",$ApiKey)
+        $webclient.Headers.Add("Authorization",$Signature)
         if ($proxy.Length -ne 0) {
-            $resp = Invoke-WebRequest -Uri $Url -Method Post -Headers $MyHeaders -ContentType $ContentType -Verbose -Proxy $proxy
-        } else {
-            $resp = Invoke-WebRequest -Uri $Url -Method Post -Headers $MyHeaders -ContentType $ContentType -Verbose
+            $webproxy = New-Object System.Net.WebProxy($proxy,$true)
+            $webclient.Proxy = $webproxy
+        } elseif ($noProxy) {
+            $webclient.Proxy = $null
         }
-        Log-Write-Host $resp
+        $resp = $webclient.UploadString($Url,"")
         Log-Write-Host "Upgrade triggered"
     } catch {
         # Check the return code
@@ -748,6 +926,16 @@ if ($help -eq $true) {
     Exit
 }
 
+
+if ($preCheck -eq $true) {
+    $checkEnforcement = (($SensorType -eq "enforcer") -and (-not $skipEnforcementCheck))
+    $isPrecheckOK = (Pre-Check -enforcement $checkEnforcement)
+    if (-not $isPrecheckOK) {
+        Log-Write-Warning "Pre-check steps failed, please check errors before retry"
+    }
+    Exit
+}
+
 if ($version -eq $true) {
     Print-Version
     Exit
@@ -759,10 +947,13 @@ if ($PSVersionTable.PSVersion.Major -lt $minPowershellVersion) {
     Exit
 }
 
-$isAdmin = Test-Administrator
-if (-not $isAdmin) {
-    Log-Write-Warning "This script must be executed under Administrator rights, try again"
-    Exit
+## check admin privileges for options
+if ($forceUpgrade -or $new) {
+    $isAdmin = Test-Administrator
+    if (-not $isAdmin) {
+        Log-Write-Warning "This script needs Administrator rights to run with defined options, try again"
+        Exit
+    }
 }
 
 
@@ -774,42 +965,6 @@ if ($ls -eq $true) {
     Exit
 }
 
-# Validate Npcap installation state if Npcap is installed
-$npcapInvalid = 0
-$npcapReg = 'hklm:\Software\Wow6432Node\Npcap'
-Log-Write-Host("Validate Npcap installation state if Npcap is installed")
-$npcapDll = "c:\\windows\\system32\\npcap\\packet.dll"
-if (Test-Path -path $npcapReg) {
-    if (!(Test-Path $npcapDll)) {
-        Log-Write-Host("Npcap packet.dll missing")
-        $npcapInvalid = 1
-    }
-}
-if ($npcapInvalid -eq 1) {
-    $npcapPath = (Get-ItemProperty $npcapReg).'(default)'
-    if (($npcapPath -ne $null) -and ($npcapPath.Length -ne 0)) {
-        # Check uninstall.exe and npfinstall.exe exist
-        $npcapUninstall = Join-Path $npcapPath "uninstall.exe"
-        $npcapInstall = Join-Path $npcapPath "NPFInstall.exe"
-        if ((Test-Path ($npcapUninstall)) -and (Test-Path ($npcapInstall))) {
-            Log-Write-Host("Try to uninstall Npcap")
-
-            Start-Process $npcapInstall -ArgumentList "-kill_proc" -Wait 
-            Start-Process $npcapUninstall -ArgumentList "/S" -Wait
-            if (Test-Path -path $npcapReg) {
-                Log-Write-Warning("Failed to uninstall npcap")
-            } else {
-                $npcapInvalid = 0
-                Log-Write-Host("Npcap uninstalled successfully !!!!")
-            }
-        }
-    }
-}
-
-if ($npcapInvalid -eq 1) {
-    Log-Write-Warning("Npcap in invalid State : Please uninstall Npcap before installing Sensor")
-    Exit
-}
 
 if ($save) {
     $save = (Full-Name $save)
@@ -830,14 +985,14 @@ if (-not $skipPreCheck) {
     }
 }
 
-if ($forceUpgrade -or $upgrade) {
+if ($forceUpgrade -or $upgradeByUUID -or $upgradeLocal) {
     $Path = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Tetration\'
     if (!(Test-Path ($Path))) {
         Log-Write-Host("Failed to find Tetration agent path, please make sure sensor is properly installed.")
         return $false
     }
     $TetFolder = (Get-ItemProperty -Path $Path).SensorPath
-    if (!(Test-Path ($TetFolder + "\\WindowsSensor.exe"))) {
+    if (!(Test-Path ($TetFolder + "\\TetSen.exe")) -and !(Test-Path ($TetFolder + "\\WindowsSensor.exe"))) {
         Log-Write-Warning ("Failed to find Tetration agent binaries, please make sure sensor is properly installed.")
         return $false
     }
@@ -850,8 +1005,11 @@ if ($forceUpgrade -or $upgrade) {
     if ($forceUpgrade) {
         $isUpgradeOK = (ForceUpgrade)
     # Trigger sensor upgrade in backend
-    } else { 
-        $upgrade = (Full-Name $upgrade)
+    } else {
+        if ($upgradeLocal) {
+            $upgradeByUUID = "C:\\Program Files\\Cisco Tetration\\sensor_id"
+        } 
+        $upgradeByUUID = (Full-Name $upgradeByUUID)
         $isUpgradeOK = (Upgrade)
     }
     if (-not $isUpgradeOK) {

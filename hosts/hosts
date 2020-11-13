@@ -1,17 +1,21 @@
 [centos]
-192.168.33.135
-192.168.33.136
-192.168.33.137
+10.9.12.11
+10.9.12.12
+10.9.12.23
+10.9.12.24
 [centos:vars]
-ansible_user=ansible
-#ansible_password=tet123$$!
-#ansible_sudo_pass=tet123$$!
+ansible_user=admin
+ansible_port=22
+ansible_password=C1sco12345
+ansible_sudo_pass=C1sco12345
 
 [ubuntu]
-192.168.36.29
+192.168.32.102
 [ubuntu:vars]
 ansible_port=22 
-ansible_user=ubuntu
+ansible_user=cisco
+ansible_password=C1sco12345
+ansible_sudo_pass=C1sco12345
 
 [win]
 192.168.32.103

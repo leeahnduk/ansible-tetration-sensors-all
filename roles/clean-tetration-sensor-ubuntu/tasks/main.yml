@@ -36,7 +36,7 @@
 - name: Remove other Temp Tetration Sensor Directory
   file: 
     state: absent 
-    path: ['/usr/local/bin/enforcer', /usr/share/doc/tet-sensor-site', '/tmp/tet-sensor-3.3.2.2-1.u18.x86_64.rpm', '/tmp/sensor_type', '/tmp/sensor_rpm_filename', '/tmp/conf/enforcer.cfg', '/tmp/conf/.sensor_config']
+    path: ['/usr/local/bin/enforcer', /usr/share/doc/tet-sensor-site', '/tmp/tet-sensor-3.4.1.6-1.u16-asean.enforcer.x86_64.rpm', '/tmp/sensor_type', '/tmp/sensor_rpm_filename', '/tmp/conf/enforcer.cfg', '/tmp/conf/.sensor_config']
 
 - name: Remove useless packages from the cache
   apt:

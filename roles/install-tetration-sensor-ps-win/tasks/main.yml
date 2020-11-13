@@ -33,12 +33,12 @@
     timeout: 180
 
 # This task checks to make sure the service is running
-- name: Wait for service to start
-  win_wait_for_process:
-    process_name_exact: 'WindowsTetEngine'
-    state: present
-    timeout: 30
-    sleep: 15
+#- name: Wait for service to start
+#  win_wait_for_process:
+#    process_name_exact: 'WindowsTetEngine'
+#    state: present
+#    timeout: 30
+#    sleep: 15
 
 # It isn't necessary to restart the service
 #- name: Restart Tetration Sensor Service

@@ -30,10 +30,11 @@
 # Do not trust system's PATH
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-SCRIPT_VERSION=1.0
+SCRIPT_VERSION="3.4.1.1-PATCH-3.4.1.6"
 LOG_FILE=
-CL_HTTPS_PROXY=
+CL_HTTPS_PROXY=""
 PROXY_ARGS=
+NO_PROXY=0
 SKIP_IPV6=0
 DO_PRECHECK=1
 NO_INSTALL=0
@@ -49,29 +50,32 @@ UUID_FILE=
 # Sensor type is chosen by users on UI
 SENSOR_TYPE="enforcer"
 # Packages used by sensor without version requirement, except rpm
-SENSOR_PACKAGE_USAGE=("unzip" "cpio" "sed" "lsof")
+SENSOR_PACKAGE_USAGE=("unzip" "sed")
 
 function print_usage {
-  echo "Usage: $0 [--skip-pre-check] [--no-install] [--logfile=<filename>] [--proxy=<proxy_string>] [--skip-ipv6-check] [--help] [--version] [--sensor-version=<version_info>] [--ls] [--file=<filename>] [--save=<filename>] [--new] [--force-upgrade] [--upgrade=<filename>]"
+  echo "Usage: $0 [--pre-check] [--skip-pre-check] [--no-install] [--logfile=<filename>] [--proxy=<proxy_string>] [--no-proxy] [--skip-ipv6-check] [--help] [--version] [--sensor-version=<version_info>] [--ls] [--file=<filename>] [--save=<filename>] [--new] [--force-upgrade] [--upgrade-local] [--upgrade-by-uuid=<filename>]"
+  echo "  --pre-check: run pre-check only"
   echo "  --skip-pre-check: skip pre-installation check (on by default)"
   echo "  --no-install: will not download and install sensor package onto the system"
   echo "  --logfile=<filename>: write the log to the file specified by <filename>"
   echo "  --proxy=<proxy_string>: set the value of CL_HTTPS_PROXY, the string should be formatted as http://<proxy>:<port>"
+  echo "  --no-proxy: bypass system wide proxy; this flag will be ignored if --proxy flag was provided"
   echo "  --skip-ipv6-check: skip IPv6 test"
   echo "  --help: print this usage"
   echo "  --version: print current script's version"
-  echo "  --sensor-version=<version_info>: select sensor's version; e.g.: '--sensor-version=3.1.1.53.devel'; will download the latest version by default"
+  echo "  --sensor-version=<version_info>: select sensor's version; e.g.: '--sensor-version=3.4.1.0'; will download the latest version by default if this flag was not provided"
   echo "  --ls: list all available sensor versions for your system (will not list pre-3.1 packages); will not download any package"
   echo "  --file=<filename>: provide local zip file to install sensor instead of downloading it from cluster"
   echo "  --save=<filename>: download and save zip file as <filename>"
   echo "  --new: cleanup installation to enable fresh install"
-  echo "  --force-upgrade: force sensor upgrade to version given by --sensor-version flag; e.g.: '--sensor-version=3.3.1.53.devel --force-upgrade'; apply the latest version by default if --sensor-version flag is missing"
-  echo "  --upgrade=<filename>: trigger sensor whose uuid is listed in <filename> upgrade to version given by --sensor-version flag; e.g.: '--sensor-version=3.3.1.53.devel --upgrade=/usr/local/tet/sensor_id'; apply the latest version by default if --sensor-version flag is missing"
+  echo "  --force-upgrade: force sensor upgrade to version given by --sensor-version flag; e.g.: '--sensor-version=3.4.1.0 --force-upgrade'; apply the latest version by default if --sensor-version flag was not provided"
+  echo "  --upgrade-local: trigger local sensor upgrade to version given by --sensor-version flag: e.g.: '--sensor-version=3.4.1.0 --upgrade-local'; apply the latest version by default if --sensor-version flag was not provided"
+  echo "  --upgrade-by-uuid=<filename>: trigger sensor whose uuid is listed in <filename> upgrade to version given by --sensor-version flag; e.g.: '--sensor-version=3.4.1.0 --upgrade-by-uuid=/usr/local/tet/sensor_id'; apply the latest version by default if --sensor-version flag was not provided"
 }
 
 function print_version {
   echo "Installation script for Cisco Tetration Agent (Version: $SCRIPT_VERSION)."
-  echo "Copyright (c) 2018-2019 Cisco Systems, Inc. All Rights Reserved."
+  echo "Copyright (c) 2018-2020 Cisco Systems, Inc. All Rights Reserved."
 }
 
 function log {
@@ -250,6 +254,11 @@ function pre_check {
     log "Error: No flock installed"
     PACKAGE_MISSING=1
   fi
+  lsof -v > /dev/null 2>&1
+  if [ $? -ne 0 ] ; then
+    log "Error: No lsof installed"
+    PACKAGE_MISSING=1
+  fi
   dmidecode_version=$(dmidecode -V 2>/dev/null)
   if [ $? -ne 0 ] ; then
     PACKAGE_MISSING=1
@@ -310,7 +319,7 @@ function pre_check {
   # detect whether su could be invoked
   (su nobody -s /bin/bash -c date >> /dev/null) &
   PID=$!
-  sleep 3; kill -9 $PID 2> /dev/null
+  sleep 6; kill -9 $PID 2> /dev/null
   wait $PID
   if [ $? -ne 0 ]; then
     log "Error: su failed to return within specified time"
@@ -468,7 +477,7 @@ function perform_install {
   log "### Installing tet-sensor on host \"$(hostname -s)\" ($(date))"
 
   if [ ! -z $CLEANUP ] ; then
-    log "cleanning up before installation"
+    log "cleaning up before installation"
     if [ ! -z "$(rpm -qa tet-sensor)" ] ; then 
       rpm -e tet-sensor
     fi
@@ -487,44 +496,45 @@ function perform_install {
   cd $TMP_DIR
 
 cat << EOF > tet.user.cfg
-ACTIVATION_KEY=2452436f76b8c614382df12b96aa36184be87610
+ACTIVATION_KEY=434af42f36c09c7628e3d3b66c89ca5f46d7b2d4
 HTTPS_PROXY=$CL_HTTPS_PROXY
+INSTALLATION_ID=site_admin_20201102022711
 EOF
 
 cat << EOF > ta_sensor_ca.pem
 -----BEGIN CERTIFICATE-----
-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
+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
-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
+Y3MxFDASBgNVBAMMC0N1c3RvbWVyIENBMB4XDTIwMDkyMjA5MzEzOVoXDTMwMDky
+MDA5MzEzOVowfzELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAkNBMREwDwYDVQQHDAhT
 YW4gSm9zZTEcMBoGA1UECgwTQ2lzY28gU3lzdGVtcywgSW5jLjEcMBoGA1UECwwT
 VGV0cmF0aW9uIEFuYWx5dGljczEUMBIGA1UEAwwLQ3VzdG9tZXIgQ0EwggIiMA0G
-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
-/81yAPXPywPe8D+aNpjkgK1D28S7
+CSqGSIb3DQEBAQUAA4ICDwAwggIKAoICAQClYtLGqC0aOtMC8sNNcxdGA5cWrnHH
+xj8Fim/Jo09AnXwArQhrrZH525/YhEvoN3rTE7RPFhr7W3fmq8p1CNjmoKeuC/+O
+hQO4AZ8phSOBIifl9y6GvnvPQuvKTyE9Q3s1DheOk0vIV+JS5ua6xrSyg3oKlqik
+TyuoMu075IJmYEqkeH6ofqHzCAGzrDKaklOxHsqvmvuh1KBZI+6zG1Jn7iLtkebP
+IxgaYMW8tA8kR/voJ5QeHNoU5yWK0i2Nseu7HPURf8Y2HIhqBqeyL1XHVT9xKrg8
+V7I0L0wK/sc2OdIiHluCCGOoPerlOSmymIK7lvg85ImDAhoHgCJuS9Fq98K9yVDj
+DDVOH5WLYZvGCPG+A1rfTw1LvKGJZJ10lYLN7rA2LDKEE8L4sSsIMc4L60qlBh5V
+6ssP8o/LdXLrfeUllYAMPSXa/jJYMJQQ2iyC1Ai2cdhPklS5YgOUZx54arOpnOt7
+SKWzUa6M9aRXVCYfMKBkkyfSZH0yZ6+/HkDcAoOD6XDXc22QXjebauZZEtuqnjVd
+nsPXERsvOZNBgN/Jd2FK5y695RoSSbfUlcg54CVN0nNTB9OK9RgavqPoZQrcIVQ5
+88e1BpKm/AAmlZLcz3L1K0bhAfKjwlfuXcdrHwhWZl5f/iy/wLCArkBFQqSjPsYd
+AlZvZOEUqJrw6wIDAQABo2AwXjAdBgNVHQ4EFgQUjHcRZwuu8ngQO54ckC7WMes0
+0agwHwYDVR0jBBgwFoAUjHcRZwuu8ngQO54ckC7WMes00agwDwYDVR0TAQH/BAUw
+AwEB/zALBgNVHQ8EBAMCAQYwDQYJKoZIhvcNAQELBQADggIBAJHDipq9NThNVW0o
+0+TG6Js0SELr8CSFcHPCD2h6CzW4/UjF8vMHa8Z4yrZPSuY/1Fu5pP9J14xvE9Qg
+6oYbudHY3BzalaARH5TmNokEtXzF6Tyk41NXXvDCDeSOu42kRVgG0vRaVSbWAAPT
+SlX0jSYC55YjF/OZwOUgUT6XFSLDExZvnEKrUoX7fDo7h74MnsGZHBz9OkBoivOF
+vahMmicIZAWEASIVxCJhiNpbDpaVIgzGuqdfbDT28ZomshrKWnuvji1HGpwZMpc/
+ziuf9TUDESXDFAFvCyGO7p6lau5/oYXGQVlMiuTi082ja78Fu69f38cckrBejTSH
+1EQaWNmSFwnTDZwsBEZF4BGxpGDx+dh6xV5Qs4tBvF3XikUXUc4zfCD3hyjbCdGM
+R+Ophc4SyfyT1u2fagj9rvsP5gkwnymQVC1lgXchkeBQ0/scpMn5DQoqHxWfO25L
+IDQIoG2tlMQrVe/dRr09T2BEMPCEJEFI5gw8rC2KVN9Leg7WBzuu19K2HiBjdNk4
+rnpjMyJDWbKLjxUpbMUvcW0q28Qd9lOACsHooYjqXCdnnURi3vZ/Jwx7gCugOfOi
+4gS7snbOZXdapZTnpx+yc+/atjhGv9HDv2ljfUqlVfA12eFcSCz6ZRsAdlCJMYpl
+4fTl8RIf/oWBJ2vYc2DuZAFCcx1y
 -----END CERTIFICATE-----
 
 EOF
@@ -592,16 +602,28 @@ EOF
     # Download the package with config files
     PKG_TYPE="sensor_w_cfg"
     check_host_version
-    [ $? -ne 0 ] && log "Error: Unsupported platform $DISTRO-$VERSION" && rm -rf $TMP_DIR && return 1
+    [ $? -ne 0 ] && log "Error: Unsupported platform $DISTRO-$VERSION" && cd $EXEC_DIR && return 1
   fi
 
   CHK_SUM=""
   CONTENT_TYPE=""
   TS=$(date -u "+%Y-%m-%dT%H:%M:%S+0000")
   HOST="https://192.168.30.5"
-  API_KEY=fb41190aa9ee4f79b1de1ebfcd838d8a
-  API_SECRET=84dbf0d8bc02113deb1b595c11a9c7d13f12d044
+  API_KEY=9774b3b6ac444c428732347b5b727493
+  API_SECRET=0fa60ff4293b42a6dc910b6d39feb88c04b41f6e
   ARCH=$(uname -m)
+  case $CL_HTTPS_PROXY in
+    http:*)
+      PROXY_ARGS="-x $CL_HTTPS_PROXY"
+      log "$CL_HTTPS_PROXY will be used as proxy"
+      ;;
+    "")
+      [ $NO_PROXY -eq 1 ] && PROXY_ARGS="-x \"\"" && log "will bypass proxy"
+      ;;
+    *)
+      [ ! -z $CL_HTTPS_PROXY ] && log "proxy $CL_HTTPS_PROXY will not be used by curl"
+      ;;
+  esac
   if [ $LIST_VERSION = "True" ] ; then
     METHOD="GET"
     URI="/openapi/v1/sw_assets/download?pkg_type=$PKG_TYPE\&platform=$DISTRO-$VERSION\&arch=$ARCH\&list_version=$LIST_VERSION"
@@ -632,6 +654,7 @@ EOF
       curl_status=$?
       if [ $curl_status -ne 0 ] ; then
         log "Curl error: $curl_status"
+        cd $EXEC_DIR
         return 1
       fi
       if [ $status_code -eq 200 ] ; then
@@ -647,27 +670,26 @@ EOF
       echo "Retry in 15 seconds..."
       sleep 15
     done
-    [ $status_code -ne 200 ] && cd $EXEC_DIR && rm -rf $TMP_DIR && return 1
+    [ $status_code -ne 200 ] && cd $EXEC_DIR && return 1
   fi
-  [ ! -z $UUID_FILE ] && cd $EXEC_DIR && rm -rf $TMP_DIR && return 0 
+  [ ! -z $UUID_FILE ] && cd $EXEC_DIR && return 0 
   if [ $LIST_VERSION = "True" ] ; then
     if [ -e $TMP_FILE ] ; then
       local IFS=
       details=$(cat $TMP_FILE)
     fi
-    echo "Available version:" && echo $details && cd $EXEC_DIR && rm -rf $TMP_DIR && return 0
+    echo "Available version:" && echo $details && cd $EXEC_DIR && return 0
   fi
   if [ ! -z $SENSOR_ZIP_FILE ] ; then
-    [ ! -e $SENSOR_ZIP_FILE ] && echo "$SENSOR_ZIP_FILE does not exist" && log "Error: $SENSOR_ZIP_FILE does not exist" && cd $EXEC_DIR && rm -rf $TMP_DIR && return 1
+    [ ! -e $SENSOR_ZIP_FILE ] && echo "$SENSOR_ZIP_FILE does not exist" && log "Error: $SENSOR_ZIP_FILE does not exist" && cd $EXEC_DIR && return 1
     cp $SENSOR_ZIP_FILE $TMP_FILE
   fi
-  [ ! -z $SAVE_ZIP_FILE ] && cp $TMP_FILE $SAVE_ZIP_FILE && cd $EXEC_DIR && rm -rf $TMP_DIR && return 0 
   unzip $TMP_FILE
-  [ $? -ne 0 ] && log "Sensor pkg can not be extracted" && cd $EXEC_DIR && rm -rf $TMP_DIR && return 1
+  [ $? -ne 0 ] && log "Sensor pkg can not be extracted" && cd $EXEC_DIR && return 1
 
   # copy the rpm file
   inner_rpm=$(ls tet-sensor*.rpm| head -1 | awk '{print $1}')
-  [ ! -z $FORCE_UPGRADE ] && cp $inner_rpm /usr/local/tet/conf_update.rpm && cd $EXEC_DIR && rm -rf $TMP_DIR && return 0
+  [ ! -z $FORCE_UPGRADE ] && cp $inner_rpm /usr/local/tet/conf_update.rpm && cd $EXEC_DIR && return 0
   cp $inner_rpm $RPM_FILE
 
   # Execute the rest from outside of temporary folder
@@ -684,16 +706,17 @@ EOF
     pgp_signed=$(echo $gpg_ok | grep -e "gpg\|pgp" -e "signatures OK")
     if [ "$pgp_signed" = "" ] ; then
       log "Error: RPM signature verification failed"
-      rm -rf $TMP_DIR
       return 1
     else
       log "RPM package is PGP-signed"
     fi
   else
     log "Error: Cannot verify RPM package - $gpg_ok"
-    rm -rf $TMP_DIR
     return 1
   fi
+
+  # Save zip file after signature check
+  [ ! -z $SAVE_ZIP_FILE ] && cd $TMP_DIR && cp $TMP_FILE $SAVE_ZIP_FILE && cd $EXEC_DIR && return 0 
 
   log "Installing Linux Sensor ..."
   # make sure we are starting from clean state
@@ -718,11 +741,6 @@ EOF
   else
     log "### Installation succeeded"
   fi
-
-  # Clean up temporary files and folders
-  log "Cleaning temporary files"
-  rm -rf $TMP_DIR
-
   return $ret
 }
 
@@ -753,7 +771,7 @@ function upgrade {
       new_version=$(cat /usr/local/tet/conf/version)
       [ "$new_version" != "$current_version" ] && log "Upgrade succeeded" && rm -f /usr/local/tet/DONOT_DOWNLOAD && return 0
     done
-    log "Upgrade timeout, cleanning up tmp files" 
+    log "Upgrade timeout, cleaning up tmp files" 
     rm -f /usr/local/tet/DONOT_DOWNLOAD
     rm -f /usr/local/tet/conf_update.rpm
     return 1
@@ -765,8 +783,32 @@ function upgrade {
   return 1
 }
 
+function cleanup_when_exit {
+  echo "Cleaning up temporary files when exit"
+  if [[ -d $TMP_DIR ]] ; then
+    tmp_dir=$(fullname "$TMP_DIR")
+    # Remove tmp_dir only if it's in /tmp/ path
+    case "$tmp_dir" in
+      /tmp/*)
+        rm -rf $tmp_dir
+        ;;
+    esac
+  fi
+}
+
+trap cleanup_when_exit EXIT
+
 for i in "$@"; do
 case $i in
+  --pre-check)
+  pre_check
+  PRECHECK_RET=$?
+  if [ $PRECHECK_RET -ne 0 ] ; then
+    log "Pre-check has failed with code $PRECHECK_RET, please fix the errors"
+    exit $PRECHECK_RET
+  fi
+  exit 0
+  ;;
   --skip-pre-check)
   DO_PRECHECK=0
   shift
@@ -782,7 +824,10 @@ case $i in
   ;;
   --proxy=*)
   CL_HTTPS_PROXY="${i#*=}"
-  PROXY_ARGS="-x $CL_HTTPS_PROXY"
+  shift
+  ;;
+  --no-proxy)
+  NO_PROXY=1
   shift
   ;;
   --skip-ipv6-check)
@@ -825,9 +870,13 @@ case $i in
   FORCE_UPGRADE="True"
   shift
   ;;
-  --upgrade=*)
+  --upgrade-local)
+  UUID_FILE="/usr/local/tet/sensor_id"
+  shift
+  ;;
+  --upgrade-by-uuid=*)
   UUID_FILE="${i#*=}"
-  [ -z $UUID_FILE ] && log "filename for --upgrade can't be empty" && exit 240
+  [ -z $UUID_FILE ] && log "filename for --upgrade-by-uuid can't be empty" && exit 240
   UUID_FILE=$(fullname "$UUID_FILE")
   shift
   ;;
